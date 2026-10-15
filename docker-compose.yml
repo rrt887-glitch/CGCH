@@ -20,6 +20,7 @@ services:
       - mysql-data:/var/lib/mysql
       - ./backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
       - ./backend/sql/mysql/quartz.sql:/docker-entrypoint-initdb.d/02-quartz.sql:ro
+      - ./backend/sql/mysql/cgch/01-menu.sql:/docker-entrypoint-initdb.d/03-cgch-menu.sql:ro
 
   redis:
     image: redis:7

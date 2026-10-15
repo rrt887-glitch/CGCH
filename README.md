@@ -45,6 +45,22 @@
 
    浏览器打开 <http://localhost:5666>，默认账号 `admin / admin123`。
 
+## 菜单与页面
+
+- 菜单由后端 `system_menu` 表下发。`backend/sql/mysql/cgch/01-menu.sql` 建立 6 个一级模块（智能看板、渠道消息、AI-CRM、CRM Claw、数字员工管理、配置中台），并隐藏已移除模块的菜单。用 docker compose 首次启动时会自动执行；已有数据库请手动执行一次，可重复执行。
+- 尚未开发的页面都指向 `frontend/apps/web-antd/src/views/cgch/placeholder/index.vue`，页面上会列出计划功能和所在阶段。开发某个页面时，新建组件并把对应菜单的 `component` 字段改过去即可。
+- AI-CRM 暂时沿用上游 CRM 模块的页面（线索、客户、商机、合同、回款等），阶段 2 再按规格改造。
+- 默认租户可以看到全部菜单。新建其他租户时，需要在「系统管理 → 租户套餐」里勾选 20000–20999 段的新菜单。
+
+## 登录
+
+- 账号密码登录和手机验证码登录都已具备，登录页右下角可切换。
+- 手机验证码登录要先配置短信：在「系统管理 → 短信管理」里填入你自己的短信渠道密钥（阿里云、腾讯云等），并建一个编码为 `admin-sms-login` 的短信模板。
+
+## 密钥与配置
+
+上游代码里的示例密钥已全部换成 `YOUR_*` 占位符，用到时请填入自己的值。前后端 API 加密使用的 AES 密钥（`backend/yudao-server/src/main/resources/application.yaml` 的 `api-encrypt`，以及 `frontend/apps/web-antd/.env` 的 `VITE_APP_API_ENCRYPT_*`）是新生成的一对。两边必须一致，上线前请一起更换。
+
 ## 开发计划
 
 1. 基础底座：多租户、登录、组织与权限、数据字典、导航（本阶段）
