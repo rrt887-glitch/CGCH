@@ -1,0 +1,133 @@
+name: build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端编译 + 启动冒烟测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: '123456'
+          MYSQL_DATABASE: ruoyi-vue-pro
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p123456"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Maven 使用中央仓库（CI 环境访问国内镜像较慢）
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings><mirrors><mirror><id>central-all</id><mirrorOf>*</mirrorOf>
+          <url>https://repo.maven.apache.org/maven2</url></mirror></mirrors></settings>
+          EOF
+
+      - name: 编译打包
+        working-directory: backend
+        run: mvn -B -ntp -T 2C -DskipTests -Dmaven.javadoc.skip=true clean install
+
+      - name: 导入数据库
+        run: |
+          for f in backend/sql/mysql/ruoyi-vue-pro.sql backend/sql/mysql/quartz.sql backend/sql/mysql/cgch/01-menu.sql; do
+            echo "导入 $f"
+            mysql -h 127.0.0.1 -uroot -p123456 --default-character-set=utf8mb4 ruoyi-vue-pro < "$f"
+          done
+          mysql -h 127.0.0.1 -uroot -p123456 ruoyi-vue-pro -e \
+            "SELECT id, name, sort FROM system_menu WHERE parent_id = 0 AND visible = b'1' ORDER BY sort;"
+
+      - name: 启动后端并检查接口
+        run: |
+          JAR=$(ls backend/yudao-server/target/yudao-server*.jar | grep -v original | head -1)
+          nohup java -jar "$JAR" --spring.profiles.active=local > server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:48080/admin-api/system/tenant/get-id-by-name?name=x; then
+              echo "后端已启动（${i}×5 秒）"; break
+            fi
+            if ! pgrep -f yudao-server > /dev/null; then echo "进程已退出"; tail -200 server.log; exit 1; fi
+            sleep 5
+          done
+          echo "--- 租户接口 ---"
+          curl -s 'http://127.0.0.1:48080/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81'; echo
+          echo "--- 登录接口 ---"
+          curl -s -X POST http://127.0.0.1:48080/admin-api/system/auth/login \
+            -H 'Content-Type: application/json' -H 'tenant-id: 1' \
+            -d '{"username":"admin","password":"admin123"}' | tee login.json; echo
+          grep -q '"code":0' login.json || { echo "登录失败"; tail -200 server.log; exit 1; }
+          TOKEN=$(python3 -c "import json;print(json.load(open('login.json'))['data']['accessToken'])")
+          echo "--- 当前用户菜单（一级） ---"
+          curl -s http://127.0.0.1:48080/admin-api/system/auth/get-permission-info \
+            -H "Authorization: Bearer $TOKEN" -H 'tenant-id: 1' > perm.json
+          python3 - <<'EOF'
+          import json
+          d = json.load(open('perm.json'))
+          assert d.get('code') == 0, d
+          names = [m['name'] for m in d['data']['menus']]
+          print(names)
+          for want in ['智能看板', '渠道消息', 'AI-CRM', 'CRM Claw', '数字员工管理', '配置中台']:
+              assert want in names, f'缺少菜单 {want}'
+          print('6 个一级模块菜单都在')
+          EOF
+
+      - name: 后端日志
+        if: always()
+        run: tail -300 server.log || true
+
+  frontend:
+    name: 前端类型检查 + 打包
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 启用 pnpm
+        run: |
+          npm i -g corepack@latest
+          corepack enable
+          pnpm -v
+
+      - name: 安装依赖
+        run: pnpm install --no-frozen-lockfile
+
+      - name: 类型检查（web-antd）
+        run: pnpm -F @vben/web-antd run typecheck
+
+      - name: 打包（web-antd）
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: pnpm build:antd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-antd-dist
+          path: frontend/apps/web-antd/dist*
+          if-no-files-found: warn
