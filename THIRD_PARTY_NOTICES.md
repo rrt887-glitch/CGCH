@@ -9,5 +9,5 @@
 
 裁剪说明：
 
-- 后端仅保留 `yudao-framework`、`yudao-dependencies`、`yudao-server` 以及 `system`、`infra`、`crm`、`pay`、`ai` 五个业务模块，其余模块已移除。
-- 前端仅保留 `apps/web-antd`（Ant Design Vue 版本），其余 UI 实现已移除。
+- 后端仅保留 `yudao-framework`、`yudao-dependencies`、`yudao-server` 以及 `system`、`infra`、`bpm`、`crm`、`pay`、`ai` 六个业务模块（`bpm` 是 CRM 合同审批的依赖），其余模块已移除。
+- 前端仅保留 `apps/web-antd`（Ant Design Vue 版本），其余 UI 实现已移除。前端的 FMS 财务页面因上游缺文件无法打包，已一并移除。
