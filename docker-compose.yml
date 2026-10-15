@@ -1,6 +1,6 @@
 # 本地开发依赖：MySQL 8 + Redis 7
 # 启动：docker compose up -d
-# 首次启动会自动导入 backend/sql/mysql 下的基础表（系统、基础设施、定时任务）
+# 首次启动会自动导入基础表（系统、基础设施、定时任务）、BPM/CRM/支付/AI 业务表和菜单
 services:
   mysql:
     image: mysql:8.0
@@ -20,7 +20,11 @@ services:
       - mysql-data:/var/lib/mysql
       - ./backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
       - ./backend/sql/mysql/quartz.sql:/docker-entrypoint-initdb.d/02-quartz.sql:ro
-      - ./backend/sql/mysql/cgch/01-menu.sql:/docker-entrypoint-initdb.d/03-cgch-menu.sql:ro
+      - ./backend/sql/mysql/cgch/00-bpm-schema.sql:/docker-entrypoint-initdb.d/03-bpm-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-crm-schema.sql:/docker-entrypoint-initdb.d/04-crm-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-pay-schema.sql:/docker-entrypoint-initdb.d/05-pay-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-ai-schema.sql:/docker-entrypoint-initdb.d/06-ai-schema.sql:ro
+      - ./backend/sql/mysql/cgch/01-menu.sql:/docker-entrypoint-initdb.d/07-cgch-menu.sql:ro
 
   redis:
     image: redis:7

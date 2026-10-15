@@ -51,7 +51,7 @@ jobs:
 
       - name: 导入数据库
         run: |
-          for f in backend/sql/mysql/ruoyi-vue-pro.sql backend/sql/mysql/quartz.sql backend/sql/mysql/cgch/01-menu.sql; do
+          for f in backend/sql/mysql/ruoyi-vue-pro.sql backend/sql/mysql/quartz.sql backend/sql/mysql/cgch/00-bpm-schema.sql backend/sql/mysql/cgch/00-crm-schema.sql backend/sql/mysql/cgch/00-pay-schema.sql backend/sql/mysql/cgch/00-ai-schema.sql backend/sql/mysql/cgch/01-menu.sql; do
             echo "导入 $f"
             mysql -h 127.0.0.1 -uroot -p123456 --default-character-set=utf8mb4 ruoyi-vue-pro < "$f"
           done
@@ -90,6 +90,18 @@ jobs:
               assert want in names, f'缺少菜单 {want}'
           print('6 个一级模块菜单都在')
           EOF
+          echo "--- 业务接口（验证表结构与代码一致） ---"
+          fail=0
+          for api in crm/customer/page crm/clue/page crm/contact/page crm/business/page crm/contract/page crm/receivable/page \
+                     crm/product/page crm/follow-up-record/page?bizType=2\&bizId=1 crm/business-status/page \
+                     pay/app/page pay/order/page ai/chat/conversation/my-list ai/model/page bpm/category/page bpm/form/page; do
+            sep='?'; case "$api" in *\?*) sep='&';; esac
+            r=$(curl -s "http://127.0.0.1:48080/admin-api/${api}${sep}pageNo=1&pageSize=10" -H "Authorization: Bearer $TOKEN" -H 'tenant-id: 1')
+            code=$(echo "$r" | python3 -c "import sys,json;print(json.load(sys.stdin).get('code'))" 2>/dev/null || echo parse-error)
+            echo "$code  $api"
+            if [ "$code" != "0" ]; then echo "  -> ${r:0:300}"; echo "::error title=api $api::${r:0:500}"; fail=1; fi
+          done
+          [ $fail -eq 0 ] || { echo '有业务接口失败'; exit 1; }
 
       - name: 后端日志
         if: always()
