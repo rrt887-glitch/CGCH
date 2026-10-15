@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.crm.controller.admin.clue.vo;
 
 import cn.iocoder.yudao.framework.common.validation.InEnum;
+import java.util.List;
 import cn.iocoder.yudao.framework.common.validation.Mobile;
 import cn.iocoder.yudao.framework.common.validation.Telephone;
 import cn.iocoder.yudao.framework.excel.core.annotations.DictFormat;
@@ -105,5 +106,29 @@ public class CrmClueSaveReqVO {
     @Schema(description = "备注", example = "随便")
     @DiffLogField(name = "备注")
     private String remark;
+
+
+    // ========== CGCH 外贸字段 ==========
+
+    @Schema(description = "国家/地区，ISO 3166-1 二字码", example = "US")
+    private String countryCode;
+
+    @Schema(description = "公司名称", example = "Acme Inc.")
+    private String companyName;
+
+    @Schema(description = "公司官网", example = "https://acme.example")
+    private String website;
+
+    @Schema(description = "WhatsApp 号码，含国际区号", example = "+14155550100")
+    private String whatsapp;
+
+    @Schema(description = "客户分组编号", example = "1")
+    private Long groupId;
+
+    @Schema(description = "标签编号列表", example = "[1, 2]")
+    private List<Long> tagIds;
+
+    @Schema(description = "是否由 AI 数字员工托管接待", example = "true")
+    private Boolean aiHosted;
 
 }

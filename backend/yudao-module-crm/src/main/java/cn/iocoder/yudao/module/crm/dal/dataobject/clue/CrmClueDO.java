@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.crm.dal.dataobject.clue;
 
 import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import java.util.List;
+import cn.iocoder.yudao.framework.mybatis.core.type.LongListTypeHandler;
+import com.baomidou.mybatisplus.annotation.TableField;
 import cn.iocoder.yudao.module.crm.dal.dataobject.customer.CrmCustomerDO;
 import cn.iocoder.yudao.module.crm.enums.DictTypeConstants;
 import com.baomidou.mybatisplus.annotation.KeySequence;
@@ -15,7 +18,7 @@ import java.time.LocalDateTime;
  *
  * @author Wanwan
  */
-@TableName("crm_clue")
+@TableName(value = "crm_clue", autoResultMap = true)
 @KeySequence("crm_clue_seq") // 用于 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库的主键自增。如果是 MySQL 等数据库，可不写。
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -124,5 +127,38 @@ public class CrmClueDO extends BaseDO {
      * 备注
      */
     private String remark;
+
+
+    // ========== CGCH 外贸字段 ==========
+
+    /**
+     * 国家/地区，ISO 3166-1 二字码，例如 US、DE
+     */
+    private String countryCode;
+    /**
+     * 公司名称
+     */
+    private String companyName;
+    /**
+     * 公司官网
+     */
+    private String website;
+    /**
+     * WhatsApp 号码，含国际区号
+     */
+    private String whatsapp;
+    /**
+     * 客户分组编号，关联 crm_customer_group
+     */
+    private Long groupId;
+    /**
+     * 标签编号列表，关联 crm_tag
+     */
+    @TableField(typeHandler = LongListTypeHandler.class)
+    private List<Long> tagIds;
+    /**
+     * 是否由 AI 数字员工托管接待
+     */
+    private Boolean aiHosted;
 
 }

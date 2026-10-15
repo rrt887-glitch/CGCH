@@ -10,6 +10,8 @@ import { useUserStore } from '@vben/stores';
 import { getSimpleUserList } from '#/api/system/user';
 import { AreaCascader } from '#/components/area';
 import { getRangePickerDefaultProps } from '#/utils';
+import { getCustomerGroupList, getTagList } from '#/api/crm/cgch';
+import { COUNTRY_OPTIONS, countryName } from '#/views/cgch/crm/shared/countries';
 
 /** 新增/修改的表单 */
 export function useFormSchema(): VbenFormSchema[] {
@@ -31,6 +33,69 @@ export function useFormSchema(): VbenFormSchema[] {
       componentProps: {
         placeholder: '请输入线索名称',
       },
+    },
+    // ===== CGCH 外贸字段 =====
+    {
+      fieldName: 'companyName',
+      label: '公司名称',
+      component: 'Input',
+      componentProps: { placeholder: '请输入公司名称', allowClear: true },
+    },
+    {
+      fieldName: 'countryCode',
+      label: '国家/地区',
+      component: 'Select',
+      componentProps: {
+        options: COUNTRY_OPTIONS,
+        placeholder: '请选择国家/地区',
+        showSearch: true,
+        optionFilterProp: 'label',
+        allowClear: true,
+      },
+    },
+    {
+      fieldName: 'website',
+      label: '公司官网',
+      component: 'Input',
+      componentProps: { placeholder: 'https://', allowClear: true },
+    },
+    {
+      fieldName: 'whatsapp',
+      label: 'WhatsApp',
+      component: 'Input',
+      componentProps: { placeholder: '含国际区号，如 +14155550100', allowClear: true },
+    },
+    {
+      fieldName: 'groupId',
+      label: '客户分组',
+      component: 'ApiSelect',
+      componentProps: {
+        api: getCustomerGroupList,
+        labelField: 'name',
+        valueField: 'id',
+        placeholder: '请选择客户分组',
+        allowClear: true,
+      },
+    },
+    {
+      fieldName: 'tagIds',
+      label: '标签',
+      component: 'ApiSelect',
+      componentProps: {
+        api: getTagList,
+        labelField: 'name',
+        valueField: 'id',
+        mode: 'multiple',
+        placeholder: '请选择标签',
+        allowClear: true,
+      },
+    },
+    {
+      fieldName: 'aiHosted',
+      label: 'AI 托管',
+      component: 'Switch',
+      defaultValue: false,
+      help: '开启后由 AI 数字员工接待该客户的渠道消息',
     },
     {
       fieldName: 'source',
@@ -171,6 +236,32 @@ export function useGridFormSchema(): VbenFormSchema[] {
         allowClear: true,
       },
     },
+    // ===== CGCH 外贸筛选 =====
+    {
+      fieldName: 'countryCode',
+      label: '国家/地区',
+      component: 'Select',
+      componentProps: {
+        options: COUNTRY_OPTIONS,
+        placeholder: '请选择国家/地区',
+        showSearch: true,
+        optionFilterProp: 'label',
+        allowClear: true,
+      },
+    },
+    {
+      fieldName: 'aiHosted',
+      label: 'AI 托管',
+      component: 'Select',
+      componentProps: {
+        options: [
+          { label: '托管中', value: true },
+          { label: '未托管', value: false },
+        ],
+        placeholder: '全部',
+        allowClear: true,
+      },
+    },
     {
       fieldName: 'transformStatus',
       label: '转化状态',
@@ -241,6 +332,29 @@ export function useGridColumns(): VxeTableGridOptions['columns'] {
       field: 'mobile',
       title: '手机',
       minWidth: 120,
+    },
+    // ===== CGCH 外贸字段 =====
+    {
+      field: 'countryCode',
+      title: '国家/地区',
+      minWidth: 110,
+      formatter: ({ cellValue }) => countryName(cellValue),
+    },
+    {
+      field: 'companyName',
+      title: '公司名称',
+      minWidth: 160,
+    },
+    {
+      field: 'whatsapp',
+      title: 'WhatsApp',
+      minWidth: 140,
+    },
+    {
+      field: 'aiHosted',
+      title: 'AI 托管',
+      minWidth: 90,
+      formatter: ({ cellValue }) => (cellValue ? '托管中' : '未托管'),
     },
     {
       field: 'telephone',

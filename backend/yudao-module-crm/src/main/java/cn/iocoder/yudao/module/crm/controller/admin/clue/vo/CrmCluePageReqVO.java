@@ -51,4 +51,16 @@ public class CrmCluePageReqVO extends PageParam {
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)
     private LocalDateTime[] createTime;
 
+
+    // ========== CGCH 外贸筛选 ==========
+
+    @Schema(description = "国家/地区二字码", example = "US")
+    private String countryCode;
+
+    @Schema(description = "客户分组编号", example = "1")
+    private Long groupId;
+
+    @Schema(description = "是否 AI 托管", example = "true")
+    private Boolean aiHosted;
+
 }

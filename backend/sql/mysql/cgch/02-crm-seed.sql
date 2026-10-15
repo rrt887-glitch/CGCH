@@ -1,0 +1,33 @@
+-- CGCH：AI-CRM 初始数据（外贸商机阶段、CRM 设置与查重菜单）
+-- 在 00-crm-schema.sql 与 01-menu.sql 之后执行；可重复执行
+SET NAMES utf8mb4;
+
+-- 外贸标准商机流程：8 个阶段，适用于全部部门（dept_ids 为空）
+DELETE FROM `crm_business_status` WHERE `type_id` = 1 AND `tenant_id` = 1;
+DELETE FROM `crm_business_status_type` WHERE `id` = 1 AND `tenant_id` = 1;
+INSERT INTO `crm_business_status_type` (`id`, `name`, `dept_ids`, `creator`, `updater`, `tenant_id`)
+VALUES (1, '外贸标准流程', '', 'admin', 'admin', 1);
+INSERT INTO `crm_business_status` (`type_id`, `name`, `percent`, `sort`, `creator`, `updater`, `tenant_id`) VALUES
+  (1, '初步回复', 5,  1, 'admin', 'admin', 1),
+  (1, '背调',     10, 2, 'admin', 'admin', 1),
+  (1, '需求挖掘', 20, 3, 'admin', 'admin', 1),
+  (1, '报价',     35, 4, 'admin', 'admin', 1),
+  (1, '样品',     50, 5, 'admin', 'admin', 1),
+  (1, '合同签订', 70, 6, 'admin', 'admin', 1),
+  (1, '订单执行', 90, 7, 'admin', 'admin', 1),
+  (1, '赢单',     100, 8, 'admin', 'admin', 1);
+
+-- AI-CRM 下新增「CRM 设置」「查重」两个页面及按钮权限
+DELETE FROM `system_menu` WHERE `id` BETWEEN 21000 AND 21099;
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `updater`, `deleted`) VALUES
+  (21000, 'CRM 设置', '', 2, 90, 480, 'cgch-settings', 'lucide:sliders-horizontal', 'cgch/crm/settings/index', 'CgchCrmSettings', 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21001, '标签查询', 'crm:tag:query', 3, 1, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21002, '标签新增', 'crm:tag:create', 3, 2, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21003, '标签修改', 'crm:tag:update', 3, 3, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21004, '标签删除', 'crm:tag:delete', 3, 4, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21005, '分组查询', 'crm:customer-group:query', 3, 5, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21006, '分组新增', 'crm:customer-group:create', 3, 6, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21007, '分组修改', 'crm:customer-group:update', 3, 7, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21008, '分组删除', 'crm:customer-group:delete', 3, 8, 21000, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21010, '查重', '', 2, 91, 480, 'cgch-dedup', 'lucide:copy-check', 'cgch/crm/dedup/index', 'CgchCrmDedup', 0, b'1', b'1', b'1', 'admin', 'admin', b'0'),
+  (21011, '查重搜索', 'crm:dedup:query', 3, 1, 21010, '', '', '', NULL, 0, b'1', b'1', b'1', 'admin', 'admin', b'0');

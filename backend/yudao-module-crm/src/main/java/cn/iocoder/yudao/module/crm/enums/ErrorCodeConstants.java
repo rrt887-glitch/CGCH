@@ -111,4 +111,19 @@ public interface ErrorCodeConstants {
     ErrorCode PERFORMANCE_CONFIG_EXISTS = new ErrorCode(1_020_011_001, "该对象当前年份的业绩目标配置已存在");
     ErrorCode PERFORMANCE_CONFIG_TYPE_INVALID = new ErrorCode(1_020_011_002, "目标对象类型不正确");
 
+
+    // ========== CGCH 标签 1-020-100-000 ==========
+    ErrorCode TAG_NOT_EXISTS = new ErrorCode(1_020_100_000, "标签不存在");
+    ErrorCode TAG_HAS_CHILDREN = new ErrorCode(1_020_100_001, "标签下还有子标签，无法删除");
+    ErrorCode TAG_PARENT_NOT_EXISTS = new ErrorCode(1_020_100_002, "父级标签不存在");
+    ErrorCode TAG_PARENT_ERROR = new ErrorCode(1_020_100_003, "不能把自己设为父级标签");
+    ErrorCode TAG_NAME_DUPLICATE = new ErrorCode(1_020_100_004, "同一层级下已存在同名标签");
+
+    // ========== CGCH 客户分组 1-020-101-000 ==========
+    ErrorCode CUSTOMER_GROUP_NOT_EXISTS = new ErrorCode(1_020_101_000, "客户分组不存在");
+    ErrorCode CUSTOMER_GROUP_HAS_CHILDREN = new ErrorCode(1_020_101_001, "分组下还有子分组，无法删除");
+    ErrorCode CUSTOMER_GROUP_PARENT_NOT_EXISTS = new ErrorCode(1_020_101_002, "父级分组不存在");
+    ErrorCode CUSTOMER_GROUP_PARENT_ERROR = new ErrorCode(1_020_101_003, "不能把自己设为父级分组");
+    ErrorCode CUSTOMER_GROUP_NAME_DUPLICATE = new ErrorCode(1_020_101_004, "同一层级下已存在同名分组");
+
 }

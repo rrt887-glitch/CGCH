@@ -98,6 +98,13 @@ CREATE TABLE `crm_clue` (
   `level` int NULL COMMENT '客户等级',
   `source` int NULL COMMENT '客户来源',
   `remark` varchar(1024) NULL COMMENT '备注',
+  `country_code` varchar(255) NULL COMMENT '国家/地区，ISO 3166-1 二字码，例如 US、DE',
+  `company_name` varchar(255) NULL COMMENT '公司名称',
+  `website` varchar(255) NULL COMMENT '公司官网',
+  `whatsapp` varchar(255) NULL COMMENT 'WhatsApp 号码，含国际区号',
+  `group_id` bigint NULL COMMENT '客户分组编号，关联 crm_customer_group',
+  `tag_ids` varchar(2000) NULL COMMENT '标签编号列表，关联 crm_tag',
+  `ai_hosted` bit(1) NULL COMMENT '是否由 AI 数字员工托管接待',
   `creator` varchar(64) NULL DEFAULT '' COMMENT '创建者',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updater` varchar(64) NULL DEFAULT '' COMMENT '更新者',
@@ -235,6 +242,13 @@ CREATE TABLE `crm_customer` (
   `level` int NULL COMMENT '客户等级',
   `source` int NULL COMMENT '客户来源',
   `remark` varchar(1024) NULL COMMENT '备注',
+  `country_code` varchar(255) NULL COMMENT '国家/地区，ISO 3166-1 二字码，例如 US、DE',
+  `company_name` varchar(255) NULL COMMENT '公司名称',
+  `website` varchar(255) NULL COMMENT '公司官网',
+  `whatsapp` varchar(255) NULL COMMENT 'WhatsApp 号码，含国际区号',
+  `group_id` bigint NULL COMMENT '客户分组编号，关联 crm_customer_group',
+  `tag_ids` varchar(2000) NULL COMMENT '标签编号列表，关联 crm_tag',
+  `ai_hosted` bit(1) NULL COMMENT '是否由 AI 数字员工托管接待',
   `creator` varchar(64) NULL DEFAULT '' COMMENT '创建者',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updater` varchar(64) NULL DEFAULT '' COMMENT '更新者',
@@ -298,6 +312,21 @@ CREATE TABLE `crm_follow_up_record` (
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '跟进记录 DO';
+
+DROP TABLE IF EXISTS `crm_customer_group`;
+CREATE TABLE `crm_customer_group` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
+  `name` varchar(255) NULL COMMENT '名称',
+  `parent_id` bigint NULL COMMENT '父级编号',
+  `sort` int NULL COMMENT '排序，越小越靠前',
+  `creator` varchar(64) NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'CRM 客户分组 DO，树形结构，parentId = 0 表示顶级';
 
 DROP TABLE IF EXISTS `crm_performance_config`;
 CREATE TABLE `crm_performance_config` (
@@ -439,3 +468,19 @@ CREATE TABLE `crm_receivable_plan` (
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'CRM 回款计划 DO';
+
+DROP TABLE IF EXISTS `crm_tag`;
+CREATE TABLE `crm_tag` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
+  `name` varchar(255) NULL COMMENT '名称',
+  `parent_id` bigint NULL COMMENT '父级编号',
+  `sort` int NULL COMMENT '排序，越小越靠前',
+  `color` varchar(255) NULL COMMENT '显示颜色，例如 #1677ff',
+  `creator` varchar(64) NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'CRM 标签 DO，树形结构，parentId = 0 表示顶级';
