@@ -2,20 +2,21 @@
 -- 在 00-crm-schema.sql 与 01-menu.sql 之后执行；可重复执行
 SET NAMES utf8mb4;
 
+-- creator/updater 填用户编号（CRM 接口会按用户编号解析）
 -- 外贸标准商机流程：8 个阶段，适用于全部部门（dept_ids 为 NULL）
 DELETE FROM `crm_business_status` WHERE `type_id` = 1 AND `tenant_id` = 1;
 DELETE FROM `crm_business_status_type` WHERE `id` = 1 AND `tenant_id` = 1;
 INSERT INTO `crm_business_status_type` (`id`, `name`, `dept_ids`, `creator`, `updater`, `tenant_id`)
-VALUES (1, '外贸标准流程', NULL, 'admin', 'admin', 1);
+VALUES (1, '外贸标准流程', NULL, '1', '1', 1);
 INSERT INTO `crm_business_status` (`type_id`, `name`, `percent`, `sort`, `creator`, `updater`, `tenant_id`) VALUES
-  (1, '初步回复', 5,  1, 'admin', 'admin', 1),
-  (1, '背调',     10, 2, 'admin', 'admin', 1),
-  (1, '需求挖掘', 20, 3, 'admin', 'admin', 1),
-  (1, '报价',     35, 4, 'admin', 'admin', 1),
-  (1, '样品',     50, 5, 'admin', 'admin', 1),
-  (1, '合同签订', 70, 6, 'admin', 'admin', 1),
-  (1, '订单执行', 90, 7, 'admin', 'admin', 1),
-  (1, '赢单',     100, 8, 'admin', 'admin', 1);
+  (1, '初步回复', 5,  1, '1', '1', 1),
+  (1, '背调',     10, 2, '1', '1', 1),
+  (1, '需求挖掘', 20, 3, '1', '1', 1),
+  (1, '报价',     35, 4, '1', '1', 1),
+  (1, '样品',     50, 5, '1', '1', 1),
+  (1, '合同签订', 70, 6, '1', '1', 1),
+  (1, '订单执行', 90, 7, '1', '1', 1),
+  (1, '赢单',     100, 8, '1', '1', 1);
 
 -- AI-CRM 下新增「CRM 设置」「查重」两个页面及按钮权限
 DELETE FROM `system_menu` WHERE `id` BETWEEN 21000 AND 21099;
