@@ -2,11 +2,11 @@
 -- 在 00-crm-schema.sql 与 01-menu.sql 之后执行；可重复执行
 SET NAMES utf8mb4;
 
--- 外贸标准商机流程：8 个阶段，适用于全部部门（dept_ids 为空）
+-- 外贸标准商机流程：8 个阶段，适用于全部部门（dept_ids 为 NULL）
 DELETE FROM `crm_business_status` WHERE `type_id` = 1 AND `tenant_id` = 1;
 DELETE FROM `crm_business_status_type` WHERE `id` = 1 AND `tenant_id` = 1;
 INSERT INTO `crm_business_status_type` (`id`, `name`, `dept_ids`, `creator`, `updater`, `tenant_id`)
-VALUES (1, '外贸标准流程', '', 'admin', 'admin', 1);
+VALUES (1, '外贸标准流程', NULL, 'admin', 'admin', 1);
 INSERT INTO `crm_business_status` (`type_id`, `name`, `percent`, `sort`, `creator`, `updater`, `tenant_id`) VALUES
   (1, '初步回复', 5,  1, 'admin', 'admin', 1),
   (1, '背调',     10, 2, 'admin', 'admin', 1),
