@@ -176,7 +176,8 @@ jobs:
           emit build.log build.log
           if [ -f server.log ]; then
             sed 's/\x1b\[[0-9;]*m//g' server.log > clean.log
-            { grep -n -A30 'APPLICATION FAILED TO START' clean.log; grep -n 'Caused by' clean.log | tail -15; } \
+            { grep -n -A30 'APPLICATION FAILED TO START' clean.log; grep -n 'Caused by' clean.log | tail -15; \
+              grep -n -A12 ' ERROR ' clean.log | grep -v '^\s*$' | tail -60; } \
               | cut -c1-900 > why.txt || true
             split -l 25 why.txt why_
             for f in why_*; do
