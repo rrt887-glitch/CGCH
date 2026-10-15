@@ -110,7 +110,16 @@ jobs:
             rm -f part_* snippet.txt
           }
           emit build.log build.log
-          emit server.log server.log
+          if [ -f server.log ]; then
+            sed 's/\x1b\[[0-9;]*m//g' server.log > clean.log
+            { grep -n -A30 'APPLICATION FAILED TO START' clean.log; grep -n 'Caused by' clean.log | tail -15; } \
+              | cut -c1-900 > why.txt || true
+            split -l 25 why.txt why_
+            for f in why_*; do
+              msg=$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+              echo "::error title=startup ($f)::$msg"
+            done
+          fi
 
   frontend:
     name: 前端类型检查 + 打包
