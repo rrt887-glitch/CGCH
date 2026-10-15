@@ -1,0 +1,41 @@
+# 本地开发依赖：MySQL 8 + Redis 7
+# 启动：docker compose up -d
+# 首次启动会自动导入基础表（系统、基础设施、定时任务）、BPM/CRM/支付/AI 业务表和菜单
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cgch-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: ruoyi-vue-pro
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-ruoyi-vue-pro.sql:ro
+      - ./backend/sql/mysql/quartz.sql:/docker-entrypoint-initdb.d/02-quartz.sql:ro
+      - ./backend/sql/mysql/cgch/00-bpm-schema.sql:/docker-entrypoint-initdb.d/03-bpm-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-crm-schema.sql:/docker-entrypoint-initdb.d/04-crm-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-pay-schema.sql:/docker-entrypoint-initdb.d/05-pay-schema.sql:ro
+      - ./backend/sql/mysql/cgch/00-ai-schema.sql:/docker-entrypoint-initdb.d/06-ai-schema.sql:ro
+      - ./backend/sql/mysql/cgch/01-menu.sql:/docker-entrypoint-initdb.d/07-cgch-menu.sql:ro
+      - ./backend/sql/mysql/cgch/02-crm-seed.sql:/docker-entrypoint-initdb.d/08-crm-seed.sql:ro
+
+  redis:
+    image: redis:7
+    container_name: cgch-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mysql-data:
+  redis-data:

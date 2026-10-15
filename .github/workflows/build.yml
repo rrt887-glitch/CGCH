@@ -1,0 +1,231 @@
+name: build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端编译 + 启动冒烟测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: '123456'
+          MYSQL_DATABASE: ruoyi-vue-pro
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p123456"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Maven 使用中央仓库（CI 环境访问国内镜像较慢）
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings><mirrors><mirror><id>central-all</id><mirrorOf>*</mirrorOf>
+          <url>https://repo.maven.apache.org/maven2</url></mirror></mirrors></settings>
+          EOF
+
+      - name: 编译打包
+        working-directory: backend
+        run: mvn -B -ntp -T 2C -DskipTests -Dmaven.javadoc.skip=true clean install 2>&1 | tee ../build.log; exit ${PIPESTATUS[0]}
+
+      - name: 导入数据库
+        run: |
+          for f in backend/sql/mysql/ruoyi-vue-pro.sql backend/sql/mysql/quartz.sql backend/sql/mysql/cgch/00-bpm-schema.sql backend/sql/mysql/cgch/00-crm-schema.sql backend/sql/mysql/cgch/00-pay-schema.sql backend/sql/mysql/cgch/00-ai-schema.sql backend/sql/mysql/cgch/01-menu.sql backend/sql/mysql/cgch/02-crm-seed.sql; do
+            echo "导入 $f"
+            mysql -h 127.0.0.1 -uroot -p123456 --default-character-set=utf8mb4 ruoyi-vue-pro < "$f"
+          done
+          mysql -h 127.0.0.1 -uroot -p123456 ruoyi-vue-pro -e \
+            "SELECT id, name, sort FROM system_menu WHERE parent_id = 0 AND visible = b'1' ORDER BY sort;"
+
+      - name: 启动后端并检查接口
+        run: |
+          JAR=$(ls backend/yudao-server/target/yudao-server*.jar | grep -v original | head -1)
+          nohup java -jar "$JAR" --spring.profiles.active=local > server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:48080/admin-api/system/tenant/get-id-by-name?name=x; then
+              echo "后端已启动（${i}×5 秒）"; break
+            fi
+            if ! pgrep -f yudao-server > /dev/null; then echo "进程已退出"; tail -200 server.log; exit 1; fi
+            sleep 5
+          done
+          echo "--- 租户接口 ---"
+          curl -s 'http://127.0.0.1:48080/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81'; echo
+          echo "--- 登录接口 ---"
+          curl -s -X POST http://127.0.0.1:48080/admin-api/system/auth/login \
+            -H 'Content-Type: application/json' -H 'tenant-id: 1' \
+            -d '{"username":"admin","password":"admin123"}' | tee login.json; echo
+          grep -q '"code":0' login.json || { echo "登录失败"; tail -200 server.log; exit 1; }
+          TOKEN=$(python3 -c "import json;print(json.load(open('login.json'))['data']['accessToken'])")
+          echo "--- 当前用户菜单（一级） ---"
+          curl -s http://127.0.0.1:48080/admin-api/system/auth/get-permission-info \
+            -H "Authorization: Bearer $TOKEN" -H 'tenant-id: 1' > perm.json
+          python3 - <<'EOF'
+          import json
+          d = json.load(open('perm.json'))
+          assert d.get('code') == 0, d
+          names = [m['name'] for m in d['data']['menus']]
+          print(names)
+          for want in ['智能看板', '渠道消息', 'AI-CRM', 'CRM Claw', '数字员工管理', '配置中台']:
+              assert want in names, f'缺少菜单 {want}'
+          print('6 个一级模块菜单都在')
+          EOF
+          echo "--- 业务接口（验证表结构与代码一致） ---"
+          fail=0
+          for api in crm/customer/page crm/clue/page crm/contact/page crm/business/page crm/contract/page crm/receivable/page \
+                     crm/product/page crm/follow-up-record/page?bizType=2\&bizId=1 crm/business-status/page \
+                     pay/app/page pay/order/page ai/chat/conversation/my-list ai/model/page bpm/category/page bpm/form/page; do
+            sep='?'; case "$api" in *\?*) sep='&';; esac
+            r=$(curl -s "http://127.0.0.1:48080/admin-api/${api}${sep}pageNo=1&pageSize=10" -H "Authorization: Bearer $TOKEN" -H 'tenant-id: 1')
+            code=$(echo "$r" | python3 -c "import sys,json;print(json.load(sys.stdin).get('code'))" 2>/dev/null || echo parse-error)
+            echo "$code  $api"
+            if [ "$code" != "0" ]; then echo "  -> ${r:0:300}"; echo "::error title=api $api::${r:0:500}"; fail=1; fi
+          done
+          [ $fail -eq 0 ] || { echo '有业务接口失败'; exit 1; }
+
+          echo "--- 外贸 CRM 扩展：标签、分组、客户新字段、筛选、查重、商机阶段 ---"
+          export TOKEN
+          python3 - <<'PY'
+          import json, os, urllib.request
+          BASE = 'http://127.0.0.1:48080/admin-api'
+          H = {'Authorization': 'Bearer ' + os.environ['TOKEN'], 'tenant-id': '1', 'Content-Type': 'application/json'}
+          def call(method, path, body=None):
+              req = urllib.request.Request(BASE + path, method=method, headers=H,
+                                           data=json.dumps(body).encode() if body is not None else None)
+              d = json.load(urllib.request.urlopen(req))
+              if d.get('code') != 0:
+                  print(f'::error title={method} {path}::{d}')
+                  raise SystemExit(f'{method} {path} 失败: {d}')
+              return d['data']
+          tag = call('POST', '/crm/tag/create', {'name': '重点客户', 'color': '#1677ff'})
+          sub = call('POST', '/crm/tag/create', {'name': '北美', 'parentId': tag})
+          group = call('POST', '/crm/customer-group/create', {'name': '展会客户'})
+          print('标签', [t['name'] for t in call('GET', '/crm/tag/list')], '分组', [g['name'] for g in call('GET', '/crm/customer-group/list')])
+          cid = call('POST', '/crm/customer/create', {
+              'name': 'Acme Buyer', 'ownerUserId': 1, 'companyName': 'Acme Trading LLC', 'countryCode': 'US',
+              'website': 'https://acme-trading.example', 'whatsapp': '+14155550100', 'email': 'buyer@acme-trading.example',
+              'groupId': group, 'tagIds': [tag, sub], 'aiHosted': True})
+          c = call('GET', f'/crm/customer/get?id={cid}')
+          for k, v in {'companyName': 'Acme Trading LLC', 'countryCode': 'US', 'whatsapp': '+14155550100',
+                       'groupId': group, 'tagIds': [tag, sub], 'aiHosted': True}.items():
+              assert c.get(k) == v, f'客户字段 {k}: {c.get(k)!r} != {v!r}'
+          print('客户新字段读写正常')
+          page = call('GET', '/crm/customer/page?pageNo=1&pageSize=10&countryCode=US&aiHosted=true')
+          assert any(r['id'] == cid for r in page['list']), f'按国家/托管筛选未找到客户: {page}'
+          page = call('GET', '/crm/customer/page?pageNo=1&pageSize=10&countryCode=DE')
+          assert all(r['id'] != cid for r in page['list']), '按国家筛选未生效'
+          print('列表筛选正常')
+          lid = call('POST', '/crm/clue/create', {'name': 'Acme 询盘', 'ownerUserId': 1, 'whatsapp': '+14155550100', 'countryCode': 'US'})
+          hits = call('GET', '/crm/dedup/search?keyword=4155550100')
+          kinds = sorted((h['type'], h['id']) for h in hits)
+          assert ('customer', cid) in kinds and ('clue', lid) in kinds, f'查重结果不完整: {hits}'
+          assert 'whatsapp' in next(h for h in hits if h['type'] == 'customer')['matchedFields']
+          print('查重正常', kinds)
+          try:
+              call('DELETE', f'/crm/tag/delete?id={tag}')
+              raise SystemExit('有子标签时删除应失败')
+          except SystemExit as e:
+              if '应失败' in str(e): raise
+          print('有子标签时禁止删除，正常')
+          types = call('GET', '/crm/business-status/type-simple-list')
+          assert any(t.get('name') == '外贸标准流程' for t in types), f'缺少外贸标准流程: {types}'
+          tid = next(t['id'] for t in types if t.get('name') == '外贸标准流程')
+          names = [x['name'] for x in call('GET', f'/crm/business-status/status-simple-list?typeId={tid}')]
+          print('商机阶段', names)
+          assert names == ['初步回复', '背调', '需求挖掘', '报价', '样品', '合同签订', '订单执行', '赢单'], names
+          PY
+
+      - name: 后端日志
+        if: always()
+        run: tail -300 server.log || true
+
+      - name: 失败时把日志摘要写成注解
+        if: failure()
+        run: |
+          emit() {  # $1 标题  $2 文件  —— 每段 40 行写成一条注解
+            [ -f "$2" ] || return 0
+            grep -nE 'ERROR|Exception|Caused by|FAIL|BUILD' "$2" | tail -120 > snippet.txt || true
+            [ -s snippet.txt ] || tail -120 "$2" > snippet.txt
+            split -l 40 snippet.txt part_
+            for f in part_*; do
+              msg=$(sed 's/%/%25/g' "$f" | cut -c1-300 | awk '{printf "%s%%0A", $0}')
+              echo "::error title=$1 ($f)::$msg"
+            done
+            rm -f part_* snippet.txt
+          }
+          emit build.log build.log
+          if [ -f server.log ]; then
+            sed 's/\x1b\[[0-9;]*m//g' server.log > clean.log
+            { grep -n -A30 'APPLICATION FAILED TO START' clean.log; grep -n 'Caused by' clean.log | tail -15; \
+              grep -n -A12 ' ERROR ' clean.log | grep -v '^\s*$' | tail -60; } \
+              | cut -c1-900 > why.txt || true
+            split -l 25 why.txt why_
+            for f in why_*; do
+              msg=$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+              echo "::error title=startup ($f)::$msg"
+            done
+          fi
+
+  frontend:
+    name: 前端类型检查 + 打包
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: 启用 pnpm
+        run: |
+          npm i -g corepack@latest
+          corepack enable
+          pnpm -v
+
+      - name: 安装依赖
+        run: pnpm install --no-frozen-lockfile
+
+      - name: 类型检查（web-antd，上游代码存在既有类型错误，仅报告不阻断）
+        continue-on-error: true
+        run: pnpm -F @vben/web-antd run typecheck 2>&1 | tail -40
+
+      - name: 打包（web-antd）
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: |
+          pnpm build:antd 2>&1 | tee ../fe-build.log; code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            msg=$(grep -nE 'error|Error|ERR' ../fe-build.log | tail -40 | sed 's/%/%25/g' | cut -c1-300 | awk '{printf "%s%%0A", $0}')
+            echo "::error title=frontend build::$msg"
+          fi
+          exit $code
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-antd-dist
+          path: frontend/apps/web-antd/dist*
+          if-no-files-found: warn
